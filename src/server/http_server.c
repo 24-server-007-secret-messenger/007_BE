@@ -2,7 +2,8 @@
 #include "mongoose.h"
 #include "auth.h"
 #include "friend.h"
-#include "http_server.h"
+#include "chat_room.h"
+#include "chat_history.h"
 
 void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
@@ -22,6 +23,12 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
         }
         else if (mg_match(hm->uri, mg_str("/friend/reject"), NULL)) {
             handle_friend_reject(conn, hm);  // 친구 거절 처리
+        }
+        else if (mg_match(hm->uri, mg_str("/chat/start"), NULL)) {
+            handle_chat_start(conn, hm);
+        }
+        else if (mg_match(hm->uri, mg_str("/chat/history"), NULL)) {
+            handle_chat_history(conn, hm);
         }
         else {
             mg_http_reply(conn, 404, "", "Not Found\n");
