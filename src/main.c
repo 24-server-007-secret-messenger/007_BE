@@ -2,8 +2,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
-#include "file_server.h"
-#include "chat_server.h"
+// #include "file_server.h"
 #include "http_server.h"
 #include "websocket_server.h"
 #include "db.h"
@@ -27,7 +26,7 @@ void signal_handler(int sig) {
 }
 
 int main() {
-    pthread_t http_thread, websocket_thread, file_thread, chat_thread;
+    pthread_t http_thread, websocket_thread;
     MYSQL *db_conn;
 
     // Signal 핸들러 설정
@@ -54,20 +53,15 @@ int main() {
         perror("Error creating WebSocket server thread");
         return 1;
     }
-    if (pthread_create(&file_thread, NULL, (void *(*)(void *))start_file_server, NULL) != 0) {
-        perror("Error creating File server thread");
-        return 1;
-    }
-    if (pthread_create(&chat_thread, NULL, (void *(*)(void *))start_chat_server, NULL) != 0) {
-        perror("Error creating Chat server thread");
-        return 1;
-    }
+    // if (pthread_create(&file_thread, NULL, (void *(*)(void *))start_file_server, NULL) != 0) {
+    //     perror("Error creating File server thread");
+    //     return 1;
+    // }
 
     // 쓰레드 종료 대기
     pthread_join(http_thread, NULL);
     pthread_join(websocket_thread, NULL);
-    pthread_join(file_thread, NULL);
-    pthread_join(chat_thread, NULL);
+    // pthread_join(file_thread, NULL);
 
     // 서버 종료 시 active_user 초기화
     db_conn = db_connect();
