@@ -24,6 +24,18 @@ void handle_login(struct mg_connection *conn, struct mg_http_message *hm) {
         return;
     }
 
+    // SSH 연결 생성 및 세션 추가
+    ssh_session session = ssh_connection(username, password);
+    if (session) {
+        add_session(username, session); // 세션 추가
+    } else {
+        mg_http_reply(conn, 403, "", "Failed to remove ssh session\n");
+        db_disconnect(db_conn);
+        free(username);
+        free(password);
+        return;
+    }
+
     // 사용자 정보 업데이트
     char query[256];
     snprintf(query, sizeof(query),
@@ -34,14 +46,8 @@ void handle_login(struct mg_connection *conn, struct mg_http_message *hm) {
         fprintf(stderr, "Failed to update user: %s\n", mysql_error(db_conn));
     }
 
-    // SSH 연결 생성 및 세션 추가
-    ssh_session session = ssh_connection(username, password);
-    if (session) {
-        add_session(username, session); // 세션 추가
-        mg_http_reply(conn, 200, "", "Login successful.\n");
-    } else {
-        mg_http_reply(conn, 403, "", "SSH connection failed.\n");
-    }
+    add_active_user(db_conn, username); // Active user에 추가
+    mg_http_reply(conn, 200, "", "Login successful.\n");
 
     db_disconnect(db_conn);
     free(username);
@@ -57,7 +63,7 @@ void handle_logout(struct mg_connection *conn, struct mg_http_message *hm) {
     }
 
     // 사용자 아이디 추출
-    char *username = mg_json_get_str(hm->body, "$.id");
+    char *username = mg_json_get_str(hm->body, "$.username");
     if (!username) {
         mg_http_reply(conn, 400, "", "Invalid JSON format.\n");
         db_disconnect(db_conn);
@@ -68,9 +74,8 @@ void handle_logout(struct mg_connection *conn, struct mg_http_message *hm) {
     ssh_session session = get_session(username);
     if (session) {
         remove_session(username);
-        mg_http_reply(conn, 200, "", "Logout successful.\n");
     } else {
-        mg_http_reply(conn, 404, "", "User not logged in.\n");
+        mg_http_reply(conn, 404, "", "Session not found.\n");
     }
 
     // Active user에서 제거
