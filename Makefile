@@ -30,12 +30,13 @@ endif
 # 디렉터리
 SRC_DIR = src
 BUILD_DIR = build
+CHAT_DIR = $(BUILD_DIR)/chat
 CORE_DIR = $(BUILD_DIR)/core
-FEATURES_DIR = $(BUILD_DIR)/features
-SERVERS_DIR = $(BUILD_DIR)/servers
+CRYPTO_DIR = $(BUILD_DIR)/crypto
+SERVER_DIR = $(BUILD_DIR)/server
 
 # 소스 및 오브젝트 파일
-SRCS := $(wildcard $(SRC_DIR)/core/*.c $(SRC_DIR)/features/*.c $(SRC_DIR)/servers/*.c $(SRC_DIR)/*.c)
+SRCS := $(wildcard $(SRC_DIR)/chat/*.c $(SRC_DIR)/core/*.c $(SRC_DIR)/crypto/*.c $(SRC_DIR)/server/*.c $(SRC_DIR)/*.c)
 OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 
 # 실행 파일 이름
@@ -54,7 +55,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 # 디렉터리 생성
 directories:
-	mkdir -p $(BUILD_DIR) $(CORE_DIR) $(FEATURES_DIR) $(SERVERS_DIR)
+	mkdir -p $(BUILD_DIR) $(CHAT_DIR) $(CORE_DIR) $(CRYPTO_DIR) $(SERVER_DIR)
 
 # 클린업 규칙
 clean:
