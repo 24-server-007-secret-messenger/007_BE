@@ -6,5 +6,8 @@
 void handle_friend_request(struct mg_connection *conn, struct mg_http_message *hm);
 void handle_friend_accept(struct mg_connection *conn, struct mg_http_message *hm);
 void handle_friend_reject(struct mg_connection *conn, struct mg_http_message *hm);
+void handle_friend_list(struct mg_connection *conn, struct mg_http_message *hm);
+void handle_active_friends_list(struct mg_connection *conn, struct mg_http_message *hm);
+void handle_requested_friend_list(struct mg_connection *conn, struct mg_http_message *hm);
 
 #endif // FRIEND_H
