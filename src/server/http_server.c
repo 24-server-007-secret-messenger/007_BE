@@ -9,6 +9,16 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
         struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 
+        // OPTIONS 요청 처리 (CORS Preflight 요청)
+        if (mg_strcmp(hm->method, mg_str("OPTIONS")) == 0) {
+            mg_http_reply(conn, 204, 
+                "Access-Control-Allow-Origin: *\r\n"
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                "Access-Control-Allow-Headers: Content-Type\r\n",
+                "");
+            return;
+        }
+
         if (mg_match(hm->uri, mg_str("/login"), NULL)) {
             handle_login(conn, hm);  // 로그인 처리
         }
@@ -24,6 +34,15 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
         else if (mg_match(hm->uri, mg_str("/friend/reject"), NULL)) {
             handle_friend_reject(conn, hm);  // 친구 거절 처리
         }
+        else if (mg_match(hm->uri, mg_str("/friend/list"), NULL)) {
+            handle_friend_list(conn, hm);  // 전체 친구 리스트 전달
+        }
+        else if (mg_match(hm->uri, mg_str("/friend/active_list"), NULL)) {
+            handle_active_friends_list(conn, hm);  // 활동 중인 친구 리스트 전달
+        }
+        else if (mg_match(hm->uri, mg_str("/friend/requested_list"), NULL)) {
+            handle_requested_friend_list(conn, hm);  // 친구 요청이 온 친구 리스트 전달
+        }
         else if (mg_match(hm->uri, mg_str("/chat/start"), NULL)) {
             handle_chat_start(conn, hm);
         }
@@ -31,7 +50,10 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
             handle_chat_history(conn, hm);
         }
         else {
-            mg_http_reply(conn, 404, "", "Not Found\n");
+            // 404 Not Found 응답
+            mg_http_reply(conn, 404,
+                "Access-Control-Allow-Origin: *\r\n",
+                "Not Found\n");
         }
     }
 }
