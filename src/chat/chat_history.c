@@ -6,24 +6,31 @@
 #include "chat_history.h"
 #include "db.h"
 
+// CORS 헤더 추가
+#define CORS_HEADERS "Access-Control-Allow-Origin: *\r\n" \
+                     "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" \
+                     "Access-Control-Allow-Headers: Content-Type\r\n"
+
 void handle_chat_history(struct mg_connection *conn, struct mg_http_message *hm) {
     char *user1 = mg_json_get_str(hm->body, "$.user1");
     char *user2 = mg_json_get_str(hm->body, "$.user2");
 
     if (!user1 || !user2) {
-        mg_http_reply(conn, 400, "", "Invalid JSON format\n");
+        mg_http_reply(conn, 400, CORS_HEADERS, "{\"error\": \"Invalid JSON format\"}\n");
         return;
     }
 
     MYSQL *db_conn = db_connect();
     if (!db_conn) {
-        mg_http_reply(conn, 500, "", "Database connection failed\n");
+        mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Database connection failed\"}\n");
+        free(user1);
+        free(user2);
         return;
     }
 
     int chat_room_id = get_chat_room_id(db_conn, user1, user2);
     if (chat_room_id == -1) {
-        mg_http_reply(conn, 404, "", "Chat room not found\n");
+        mg_http_reply(conn, 404, CORS_HEADERS, "{\"error\": \"Chat room not found\"}\n");
     } else {
         get_chat_history(db_conn, chat_room_id, conn);
     }
@@ -70,25 +77,25 @@ void get_chat_history(MYSQL *conn, int chat_room_id, struct mg_connection *conn_
 
     if (mysql_query(conn, query)) {
         fprintf(stderr, "Message retrieval failed: %s\n", mysql_error(conn));
-        mg_http_reply(conn_ws, 500, "", "Failed to fetch chat history\n");
+        mg_http_reply(conn_ws, 500, CORS_HEADERS, "{\"error\": \"Failed to fetch chat history\"}\n");
         return;
     }
 
     MYSQL_RES *result = mysql_store_result(conn);
     if (!result) {
         fprintf(stderr, "Failed to store result: %s\n", mysql_error(conn));
-        mg_http_reply(conn_ws, 500, "", "Failed to fetch chat history\n");
+        mg_http_reply(conn_ws, 500, CORS_HEADERS, "{\"error\": \"Failed to fetch chat history\"}\n");
         return;
     }
 
     char *response = malloc(4096); // 임시 버퍼
     if (!response) {
-        mg_http_reply(conn_ws, 500, "", "Memory allocation failed\n");
+        mg_http_reply(conn_ws, 500, CORS_HEADERS, "{\"error\": \"Memory allocation failed\"}\n");
         mysql_free_result(result);
         return;
     }
 
-    strcpy(response, "[");
+    strcpy(response, "{\"chat_history\":[");
     MYSQL_ROW row;
     
     int first = 1; // JSON 배열의 첫 번째 요소 여부를 추적
@@ -100,9 +107,9 @@ void get_chat_history(MYSQL *conn, int chat_room_id, struct mg_connection *conn_
         strcat(response, entry);
         first = 0;
     }
-    strcat(response, "]"); // JSON 배열 종료
+    strcat(response, "]}"); // JSON 배열 종료
 
-    mg_http_reply(conn_ws, 200, "Content-Type: application/json\r\n", "%s", response);
+    mg_http_reply(conn_ws, 200, CORS_HEADERS "Content-Type: application/json\r\n", "%s", response);
 
     free(response);
     mysql_free_result(result);
