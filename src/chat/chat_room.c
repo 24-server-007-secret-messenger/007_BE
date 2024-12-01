@@ -6,43 +6,16 @@
 #include "db.h"
 #include "chat_room.h"
 
-void handle_chat_start(struct mg_connection *conn, struct mg_http_message *hm) {
-    char *user1 = mg_json_get_str(hm->body, "$.user1");
-    char *user2 = mg_json_get_str(hm->body, "$.user2");
-
-    if (!user1 || !user2) {
-        mg_http_reply(conn, 400, "", "Invalid JSON format\n");
-        return;
-    }
-
-    // 사용자 정렬
-    if (strcmp(user1, user2) > 0) {
-        char *temp = user1;
-        user1 = user2;
-        user2 = temp;
-    }
-
-    MYSQL *db_conn = db_connect();
-    if (!db_conn) {
-        mg_http_reply(conn, 500, "", "Database connection failed\n");
-        free(user1);
-        free(user2);
-        return;
-    }
-
-    int chat_room_id = create_or_get_chat_room(db_conn, user1, user2);
-    if (chat_room_id == -1) {
-        mg_http_reply(conn, 500, "", "Failed to create chat room\n");
-    } else {
-        mg_http_reply(conn, 200, "", "{\"chat_room_id\":%d}\n", chat_room_id);
-    }
-
-    db_disconnect(db_conn);
-    free(user1);
-    free(user2);
-}
+// CORS 헤더 추가
+#define CORS_HEADERS "Access-Control-Allow-Origin: *\r\n" \
+                     "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" \
+                     "Access-Control-Allow-Headers: Content-Type\r\n"
 
 int create_or_get_chat_room(MYSQL *conn, const char *user1, const char *user2) {
+    // 사용자 정렬: 항상 user1 < user2로 정렬
+    const char *first_user = (strcmp(user1, user2) < 0) ? user1 : user2;
+    const char *second_user = (strcmp(user1, user2) < 0) ? user2 : user1;
+
     // 친구 관계와 active_user 확인
     char query[512];
     snprintf(query, sizeof(query),
@@ -52,7 +25,7 @@ int create_or_get_chat_room(MYSQL *conn, const char *user1, const char *user2) {
              "WHERE ((f.from_user = '%s' AND f.to_user = '%s') OR "
              "(f.from_user = '%s' AND f.to_user = '%s')) "
              "AND f.status = 'accepted'",
-             user1, user2, user2, user1);
+             first_user, second_user, second_user, first_user);
 
     if (mysql_query(conn, query)) {
         fprintf(stderr, "Friend and active_user check failed: %s\n", mysql_error(conn));
@@ -60,6 +33,11 @@ int create_or_get_chat_room(MYSQL *conn, const char *user1, const char *user2) {
     }
 
     MYSQL_RES *result = mysql_store_result(conn);
+    if (!result) {
+        fprintf(stderr, "Failed to store result: %s\n", mysql_error(conn));
+        return -1;
+    }
+
     MYSQL_ROW row = mysql_fetch_row(result);
     int is_friend_and_active = atoi(row[0]);
     mysql_free_result(result);
@@ -69,12 +47,12 @@ int create_or_get_chat_room(MYSQL *conn, const char *user1, const char *user2) {
         return -1;
     }
 
-    // 채팅방 생성 또는 가져오기
+    // 채팅방 생성 또는 가져오기: 항상 정렬된 순서로 삽입
     snprintf(query, sizeof(query),
              "INSERT INTO chat_room (user1, user2) "
              "VALUES ('%s', '%s') "
              "ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)",
-             user1, user2);
+             first_user, second_user);
 
     if (mysql_query(conn, query)) {
         fprintf(stderr, "Chat room creation failed: %s\n", mysql_error(conn));
