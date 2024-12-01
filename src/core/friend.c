@@ -22,11 +22,58 @@ void handle_friend_request(struct mg_connection *conn, struct mg_http_message *h
     MYSQL *db_conn = db_connect();
     if (!db_conn) {
         mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Database connection failed.\"}");
+        free(from_user);
+        free(to_user);
         return;
     }
 
-    // 중복 체크: 기존 친구 요청 또는 관계 확인
+    // from_user가 user 테이블에 있는지 확인
     char query[256];
+    snprintf(query, sizeof(query), "SELECT username FROM user WHERE username='%s'", from_user);
+    if (mysql_query(db_conn, query)) {
+        fprintf(stderr, "MySQL error: %s\n", mysql_error(db_conn));
+        mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Failed to verify from_user existence.\"}");
+        db_disconnect(db_conn);
+        free(from_user);
+        free(to_user);
+        return;
+    }
+
+    // from_user가 없으면 400 에러 응답
+    MYSQL_RES *user_check = mysql_store_result(db_conn);
+    if (mysql_num_rows(user_check) == 0) {
+        mg_http_reply(conn, 400, CORS_HEADERS, "{\"error\": \"from_user does not exist.\"}");
+        mysql_free_result(user_check);
+        db_disconnect(db_conn);
+        free(from_user);
+        free(to_user);
+        return;
+    }
+    mysql_free_result(user_check);
+
+    // to_user가 user 테이블에 있는지 확인
+    snprintf(query, sizeof(query), "SELECT username FROM user WHERE username='%s'", to_user);
+    if (mysql_query(db_conn, query)) {
+        fprintf(stderr, "MySQL error: %s\n", mysql_error(db_conn));
+        mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Failed to verify to_user existence.\"}");
+        db_disconnect(db_conn);
+        free(from_user);
+        free(to_user);
+        return;
+    }
+    // to_user가 없으면 400 에러 응답
+    user_check = mysql_store_result(db_conn);
+    if (mysql_num_rows(user_check) == 0) {
+        mg_http_reply(conn, 400, CORS_HEADERS, "{\"error\": \"to_user does not exist.\"}");
+        mysql_free_result(user_check);
+        db_disconnect(db_conn);
+        free(from_user);
+        free(to_user);
+        return;
+    }
+    mysql_free_result(user_check);
+
+    // 중복 체크: 기존 친구 요청 또는 관계 확인
     snprintf(query, sizeof(query),
              "SELECT status FROM friend WHERE (from_user='%s' AND to_user='%s') OR (from_user='%s' AND to_user='%s')",
              from_user, to_user, to_user, from_user);
@@ -35,6 +82,8 @@ void handle_friend_request(struct mg_connection *conn, struct mg_http_message *h
         fprintf(stderr, "MySQL error: %s\n", mysql_error(db_conn));
         mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Failed to process friend request.\"}");
         db_disconnect(db_conn);
+        free(from_user);
+        free(to_user);
         return;
     }
 
@@ -42,7 +91,6 @@ void handle_friend_request(struct mg_connection *conn, struct mg_http_message *h
     MYSQL_ROW row = mysql_fetch_row(result);
 
     if (row) {
-        // 이미 관계가 존재할 경우
         const char *status = row[0];
         if (strcmp(status, "pending") == 0) {
             mg_http_reply(conn, 409, CORS_HEADERS, "{\"error\": \"Friend request already pending.\"}");
@@ -95,7 +143,7 @@ void handle_friend_accept(struct mg_connection *conn, struct mg_http_message *hm
     char query[256];
     snprintf(query, sizeof(query),
              "UPDATE friend SET status='accepted' WHERE from_user='%s' AND to_user='%s' AND status='pending'",
-             to_user, from_user); // 요청을 보낸 쪽과 수락한 쪽 반대
+             from_user, to_user); // 요청을 보낸 쪽과 수락한 쪽 반대
 
     if (mysql_query(db_conn, query)) {
         fprintf(stderr, "MySQL error: %s\n", mysql_error(db_conn));
@@ -209,7 +257,7 @@ void handle_friend_list(struct mg_connection *conn, struct mg_http_message *hm) 
 
 void handle_active_friends_list(struct mg_connection *conn, struct mg_http_message *hm) {
     // JSON 본문에서 username 추출
-    char *username = mg_json_get_str(hm->body, "$.username");
+    char *username = mg_json_get_str(hm->body, "$.username"); // 로그인한 유저의 username
     if (!username) {
         mg_http_reply(conn, 400, CORS_HEADERS, "{\"error\": \"Invalid JSON format. 'username' required.\"}");
         return;
@@ -279,7 +327,7 @@ void handle_requested_friend_list(struct mg_connection *conn, struct mg_http_mes
 
     char query[512];
     snprintf(query, sizeof(query),
-             "SELECT to_user FROM friend WHERE from_user='%s' AND status='pending'", username);
+             "SELECT from_user FROM friend WHERE to_user='%s' AND status='pending'", username); // 친구 신청을 보낸 사람의 username
 
     if (mysql_query(db_conn, query)) {
         fprintf(stderr, "MySQL error: %s\n", mysql_error(db_conn));
