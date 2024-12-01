@@ -23,8 +23,7 @@ void aes_encrypt(const unsigned char *input, const unsigned char *key, const uns
 // AES CBC 모드 복호화
 void aes_decrypt(const unsigned char *input, const unsigned char *key, const unsigned char *iv, unsigned char *output, int input_len) {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    int len;
-    int plaintext_len;
+    int len, plaintext_len;
 
     // 복호화 초기화
     EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv);
@@ -36,7 +35,7 @@ void aes_decrypt(const unsigned char *input, const unsigned char *key, const uns
     EVP_DecryptFinal_ex(ctx, output + len, &len);
     plaintext_len += len;
 
-    // NULL 종결자를 추가해 문자열로 만듭니다.
+    // NULL 문자를 추가해 문자열로 만든다
     output[plaintext_len] = '\0';
 
     EVP_CIPHER_CTX_free(ctx);
