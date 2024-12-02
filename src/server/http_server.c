@@ -4,7 +4,6 @@
 #include "friend.h"
 #include "chat_room.h"
 #include "chat_history.h"
-#include "encryption.h"
 #include "decryption.h"
 
 void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
@@ -53,9 +52,6 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
         }
         else if (mg_match(hm->uri, mg_str("/chat/room_list"), NULL)) {
             handle_chat_room_list(conn, hm); // 채팅방 리스트 전달
-        }
-        else if (mg_match(hm->uri, mg_str("/chat/encrypt"), NULL)) {
-            handle_encrypt_message(conn, hm); // 비밀 메시지 암호화
         }
         else if (mg_match(hm->uri, mg_str("/chat/decrypt"), NULL)) {
             handle_decrypt_message(conn, hm); // 비밀 메시지 복호화
