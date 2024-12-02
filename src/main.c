@@ -53,15 +53,10 @@ int main() {
         perror("Error creating WebSocket server thread");
         return 1;
     }
-    // if (pthread_create(&file_thread, NULL, (void *(*)(void *))start_file_server, NULL) != 0) {
-    //     perror("Error creating File server thread");
-    //     return 1;
-    // }
 
     // 쓰레드 종료 대기
     pthread_join(http_thread, NULL);
     pthread_join(websocket_thread, NULL);
-    // pthread_join(file_thread, NULL);
 
     // 서버 종료 시 active_user 초기화
     db_conn = db_connect();
