@@ -6,6 +6,7 @@
 #include "websocket_server.h"
 #include "db.h"
 #include "chat_room.h"
+#include "encryption.h"
 
 // 전역 MySQL 연결
 static MYSQL *global_db_conn = NULL;
@@ -19,13 +20,17 @@ void process_message(struct mg_connection *conn, struct mg_ws_message *wm) {
     const char *from = mg_json_get_str(message, "$.from");
     const char *to = mg_json_get_str(message, "$.to");
     const char *text = mg_json_get_str(message, "$.message");
+    bool encrypt = false;
+    mg_json_get_bool(message, "$.encrypt", &encrypt);
+    const char *key = mg_json_get_str(message, "$.key");
 
+    // ! 제발 건드리지마(RSV1 must be clear 에러 방지)
     if (!from || !to || !text) {
         mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Invalid JSON message format\"}");
         return;
     }
 
-    printf("Parsed from: %s, to: %s, message: %s\n", from, to, text);
+    printf("Parsed from: %s, to: %s, message: %s, encrypt: %s\n", from, to, text, encrypt ? "true" : "false");
 
     // 채팅방 생성 또는 가져오기
     int chat_room_id = create_or_get_chat_room(global_db_conn, from, to);
@@ -35,23 +40,39 @@ void process_message(struct mg_connection *conn, struct mg_ws_message *wm) {
         return;
     }
 
-    // 메시지 저장
-    save_message(global_db_conn, chat_room_id, from, text);
+    if (encrypt) {
+        // 암호화된 메시지 처리
+        if (key) {
+            char *stego_image_name = handle_encrypt_message(conn, from, to, text, key, chat_room_id);
+            if (stego_image_name) {
+                printf("Stego image: %s\n", stego_image_name);
+                save_message(global_db_conn, chat_room_id, from, stego_image_name, encrypt);
+                free(stego_image_name);  // 동적 메모리 해제
+            } else {
+                mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Failed to process encrypted message\"}");
+            }
+        }
+        mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Key is required for encryption\"}");
+    } else {
+        // 평문 메시지 처리
+        save_message(global_db_conn, chat_room_id, from, text, encrypt);
 
-    // 메시지 브로드캐스트
-    struct mg_connection *c;
-    for (c = conn->mgr->conns; c != NULL; c = c->next) {
-        if (c->is_websocket) {
-            mg_ws_send(c, wm->data.buf, wm->data.len, WEBSOCKET_OP_TEXT);
+        // 메시지 브로드캐스트
+        struct mg_connection *c;
+        for (c = conn->mgr->conns; c != NULL; c = c->next) {
+            if (c->is_websocket) {
+                mg_ws_send(c, wm->data.buf, wm->data.len, WEBSOCKET_OP_TEXT);
+            }
         }
     }
 }
 
-void save_message(MYSQL *conn, int chat_room_id, const char *sender, const char *message) {
+// 메시지 저장
+void save_message(MYSQL *conn, int chat_room_id, const char *sender, const char *message, bool encrypt) {
     char query[1024];
     snprintf(query, sizeof(query),
-             "INSERT INTO chat_message (chat_room_id, sender, message) VALUES (%d, '%s', '%s')",
-             chat_room_id, sender, message);
+             "INSERT INTO chat_message (chat_room_id, sender, message, encrypt) VALUES (%d, '%s', '%s', %d)",
+             chat_room_id, sender, message, encrypt);
 
     if (mysql_query(conn, query)) {
         fprintf(stderr, "Message save failed: %s\n", mysql_error(conn));
