@@ -1,30 +1,28 @@
 # 컴파일러 설정
 CC = gcc
 CFLAGS = -Iinclude -Wall -pthread
-LDFLAGS = -lssl -lcrypto -lpthread -lwebsockets -lssh -ljansson -lmongoose -lmysqlclient
+LDFLAGS = -lssl -lcrypto -lpthread -lwebsockets -lssh -ljansson -lmongoose -lmysqlclient -luuid -lb64
 
 # 운영 체제에 따라 경로 설정
 ifeq ($(shell uname), Darwin) # macOS
     CFLAGS += -I/opt/homebrew/opt/openssl/include \
-              -I/opt/homebrew/opt/libwebsockets/include \
-              -I/opt/homebrew/opt/jansson/include \
-              -I/opt/homebrew/opt/libssh/include \
-              -I/opt/homebrew/opt/mongoose/include \
-              -I/opt/homebrew/opt/mysql-client/include
+                -I/opt/homebrew/opt/libwebsockets/include \
+                -I/opt/homebrew/opt/jansson/include \
+                -I/opt/homebrew/opt/libssh/include \
+                -I/opt/homebrew/opt/mongoose/include \
+                -I/opt/homebrew/opt/mysql-client/include \
+                -I/opt/homebrew/opt/ossp-uuid/include \
+                -I/opt/homebrew/opt/libb64/include
+
     LDFLAGS += -L/opt/homebrew/opt/openssl/lib \
-               -L/opt/homebrew/opt/libwebsockets/lib \
-               -L/opt/homebrew/opt/jansson/lib \
-               -L/opt/homebrew/opt/libssh/lib \
-               -L/opt/homebrew/opt/mongoose/lib \
-               -L/opt/homebrew/opt/mysql-client/lib
-else ifeq ($(shell uname), Linux) # Linux
-    CFLAGS += -I/usr/include/mysql
-    LDFLAGS += -L/usr/lib/x86_64-linux-gnu
-else ifeq ($(OS), Windows_NT) # Windows (MinGW 환경)
-    CFLAGS += -IC:/mysql/include
-    LDFLAGS += -LC:/mysql/lib
-else
-    $(error Unsupported platform: $(shell uname))
+                -L/opt/homebrew/opt/libwebsockets/lib \
+                -L/opt/homebrew/opt/jansson/lib \
+                -L/opt/homebrew/opt/libssh/lib \
+                -L/opt/homebrew/opt/mongoose/lib \
+                -L/opt/homebrew/opt/mysql-client/lib \
+                -L/opt/homebrew/opt/ossp-uuid/lib \
+                -L/opt/homebrew/opt/libb64/lib
+
 endif
 
 # 디렉터리
