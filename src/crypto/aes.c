@@ -30,6 +30,9 @@ void aes_encrypt(const unsigned char *input, const unsigned char *key, const uns
         return;
     }
 
+    *output_len += len; // 완료된 길이 추가
+    printf("Encryption Length: %d\n", len);
+
     EVP_CIPHER_CTX_free(ctx);
 }
 
@@ -44,14 +47,14 @@ void aes_decrypt(const unsigned char *input, unsigned char *output, const unsign
     }
 
     // 복호화 초기화
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) != 1) {
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, aes_key, aes_iv) != 1) {
         fprintf(stderr, "Error initializing decryption context\n");
         EVP_CIPHER_CTX_free(ctx);
         return;
     }
 
     // 복호화 업데이트
-    if (EVP_DecryptUpdate(ctx, output, &len, input, input_len) != 1) {
+    if (EVP_DecryptUpdate(ctx, output, &len, input, aes_len) != 1) {
         fprintf(stderr, "Error during decryption update\n");
         EVP_CIPHER_CTX_free(ctx);
         return;
