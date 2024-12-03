@@ -5,6 +5,7 @@
 #include "chat_room.h"
 #include "chat_history.h"
 #include "decryption.h"
+#include "self_destruct.h"
 
 void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
@@ -55,6 +56,9 @@ void handle_request(struct mg_connection *conn, int ev, void *ev_data) {
         }
         else if (mg_match(hm->uri, mg_str("/chat/decrypt"), NULL)) {
             handle_decrypt_message(conn, hm); // 비밀 메시지 복호화
+        }
+        else if (mg_match(hm->uri, mg_str("/chat/boom"), NULL)) {
+            handle_timer(conn, hm); // 타이머 엔드포인트
         }
         else {
             // 404 Not Found 응답
