@@ -52,7 +52,9 @@ void process_message(struct mg_connection *conn, struct mg_ws_message *wm) {
                 mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Failed to process encrypted message\"}");
             }
         }
-        mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Key is required for encryption\"}");
+        else {
+            mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Key is required for encryption\"}");
+        }
     } else {
         // 평문 메시지 처리
         save_message(global_db_conn, chat_room_id, from, text, encrypt);
