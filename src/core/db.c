@@ -19,12 +19,12 @@ MYSQL *db_connect() {
         return NULL;
     }
 
-    // 세션 시간대를 KST로 설정
-    if (mysql_query(conn, "SET time_zone = '+09:00'")) {
-        fprintf(stderr, "Failed to set time zone: %s\n", mysql_error(conn));
-        mysql_close(conn);
-        return NULL;
-    }
+    // // 세션 시간대를 KST로 설정
+    // if (mysql_query(conn, "SET time_zone = '+09:00'")) {
+    //     fprintf(stderr, "Failed to set time zone: %s\n", mysql_error(conn));
+    //     mysql_close(conn);
+    //     return NULL;
+    // }
 
     return conn;
 }
