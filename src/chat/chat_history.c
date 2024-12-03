@@ -88,7 +88,7 @@ void get_chat_history(MYSQL *conn, int chat_room_id, struct mg_connection *conn_
         return;
     }
 
-    char *response = malloc(1000000);
+    char *response = malloc(3000000);
     
     if (!response) {
         mg_http_reply(conn_ws, 500, CORS_HEADERS, "{\"error\": \"Memory allocation failed\"}\n");
