@@ -41,6 +41,13 @@ void generate_aes_key_and_iv(unsigned char *aes_key, unsigned char *aes_iv) {
     printf("\n");
 }
 
+// 환경 변수 설정 함수
+void set_file_path_env_vars() {
+    setenv("IMAGE_INPUT_DIR", "assets/input", 1);
+    setenv("IMAGE_OUTPUT_DIR", "assets/output/image", 1);
+    setenv("TEXT_OUTPUT_DIR", "assets/output/txt", 1);
+}
+
 // 랜덤 이미지 선택 함수
 const char* select_random_image(const char *directory) {
     struct dirent *entry;
@@ -68,10 +75,11 @@ const char* select_random_image(const char *directory) {
         return NULL;
     }
 
-    // 랜덤 선택
+    // 랜덤 선택Í
     srand((unsigned int)time(NULL));
     int random_index = rand() % count;
 
+    // 선택된 이미지 복사
     const char *selected_image = strdup(file_list[random_index]);
 
     // 메모리 해제
@@ -85,6 +93,13 @@ const char* select_random_image(const char *directory) {
 // 암호화 메시지 처리 함수
 char *handle_encrypt_message(struct mg_connection *conn, const char *from, const char *to, const char *input_message, const char *key, int chat_room_id) {
     printf("From: %s, To: %s, Message: %s, Key: %s\n", from, to, input_message, key);
+
+    // 환경 변수 설정
+    set_file_path_env_vars();
+
+    const char *input_directory = getenv("IMAGE_INPUT_DIR");
+    const char *output_image_directory = getenv("IMAGE_OUTPUT_DIR");
+    const char *output_text_directory = getenv("TEXT_OUTPUT_DIR");
 
     unsigned char aes_key[16];
     unsigned char aes_iv[AES_BLOCK_SIZE];
@@ -108,15 +123,14 @@ char *handle_encrypt_message(struct mg_connection *conn, const char *from, const
     }
 
     // 랜덤 이미지 선택
-    const char *input_directory = "assets/input";
     const char *input_image = select_random_image(input_directory);
     if (!input_image) {
         mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"No valid image files found\"}\n");
         return NULL;
     }
-    printf("Selected image: %s\n", input_image);
+    printf("Selected input image: %s\n", input_image);
 
-    // input_image_name에 파일 이름 복사
+    // input 파일 이름 추출
     const char *file_name_ptr = strrchr(input_image, '/');
     if (file_name_ptr) {
         file_name_ptr++; // '/' 이후의 파일명
@@ -165,7 +179,7 @@ char *handle_encrypt_message(struct mg_connection *conn, const char *from, const
 
     // 전체 경로와 확장자를 포함한 output_image 생성
     char output_image[512];
-    snprintf(output_image, sizeof(output_image), "assets/output/image/%s.jpg", output_image_name);
+    snprintf(output_image, sizeof(output_image), "%s/%s.jpeg", output_image_directory, output_image_name);
     printf("Output image: %s\n", output_image);
 
     // 메시지를 이미지에 숨김
@@ -190,7 +204,7 @@ char *handle_encrypt_message(struct mg_connection *conn, const char *from, const
     // Base64 이미지를 같은 이름의 .txt 파일로 저장
     // Base64 이미지를 같은 이름의 .txt 파일로 저장
     char txt_file_path[512];
-    snprintf(txt_file_path, sizeof(txt_file_path), "assets/output/txt/%s.txt", output_image_name);
+    snprintf(txt_file_path, sizeof(txt_file_path), "%s/%s.txt", output_text_directory, output_image_name);
 
     // 파일 열기
     FILE *txt_file = fopen(txt_file_path, "w");

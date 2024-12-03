@@ -80,9 +80,11 @@ void handle_decrypt_message(struct mg_connection *conn, struct mg_http_message *
     base64_decode(aes_key_base64, aes_key);
     base64_decode(aes_iv_base64, aes_iv);
 
+    const char *output_image_directory = getenv("IMAGE_OUTPUT_DIR");
+
     // 이미지 경로 생성
     char output_image[256];
-    snprintf(output_image, sizeof(output_image), "assets/output/image/%s.jpg", output_image_name);
+    snprintf(output_image, sizeof(output_image), "%s/%s.jpeg", output_image_directory, output_image_name);
     printf("Key: %s, Output Image Path: %s\n", db_key, output_image);
 
     // Steganography 복호화

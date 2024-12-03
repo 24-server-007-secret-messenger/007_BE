@@ -7,6 +7,7 @@
 #include "db.h"
 #include "chat_room.h"
 #include "encryption.h"
+#include "socket_client.h"
 
 // 전역 MySQL 연결
 static MYSQL *global_db_conn = NULL;
@@ -24,7 +25,6 @@ void process_message(struct mg_connection *conn, struct mg_ws_message *wm) {
     mg_json_get_bool(message, "$.encrypt", &encrypt);
     const char *key = mg_json_get_str(message, "$.key");
 
-    // ! 제발 건드리지마(RSV1 must be clear 에러 방지)
     if (!from || !to || !text) {
         mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Invalid JSON message format\"}");
         return;
@@ -43,28 +43,30 @@ void process_message(struct mg_connection *conn, struct mg_ws_message *wm) {
     if (encrypt) {
         // 암호화된 메시지 처리
         if (key) {
+            char *response = send_tcp_request("encrypt", text, key); // TCP로 암호화 요청
             char *stego_image_name = handle_encrypt_message(conn, from, to, text, key, chat_room_id);
             if (stego_image_name) {
-                printf("Stego image: %s\n", stego_image_name);
+                printf("Steganography image: %s\n", stego_image_name);
                 save_message(global_db_conn, chat_room_id, from, stego_image_name, encrypt);
                 free(stego_image_name);  // 동적 메모리 해제
             } else {
                 mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Failed to process encrypted message\"}");
             }
+
+
         }
         else {
             mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Key is required for encryption\"}");
         }
     } else {
         // 평문 메시지 처리
-        save_message(global_db_conn, chat_room_id, from, text, encrypt);
-
-        // 메시지 브로드캐스트
-        struct mg_connection *c;
-        for (c = conn->mgr->conns; c != NULL; c = c->next) {
-            if (c->is_websocket) {
-                mg_ws_send(c, wm->data.buf, wm->data.len, WEBSOCKET_OP_TEXT);
-            }
+        char *response = send_tcp_request("plain", text, NULL); // TCP로 일반 메시지 처리 요청
+        if (response) {
+            save_message(global_db_conn, chat_room_id, from, response, encrypt);
+            mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"message\": \"%s\"}", response);
+            free(response);
+        } else {
+            mg_ws_printf(conn, WEBSOCKET_OP_TEXT, "{\"error\": \"Failed to process plain message\"}");
         }
     }
 }
