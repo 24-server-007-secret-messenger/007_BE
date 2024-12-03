@@ -6,6 +6,6 @@
 
 // AES 암호화 및 복호화 함수 원형
 void aes_encrypt(const unsigned char *input, const unsigned char *key, const unsigned char *iv, unsigned char *output, int *output_len);
-void aes_decrypt(const unsigned char *input, const unsigned char *key, const unsigned char *iv, unsigned char *output, int input_len);
+void aes_decrypt(const unsigned char *input, unsigned char *output, const unsigned char *aes_key, const unsigned char *aes_iv, int aes_len);
 
 #endif // AES_H

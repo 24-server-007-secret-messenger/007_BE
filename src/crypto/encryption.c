@@ -17,12 +17,8 @@
                      "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" \
                      "Access-Control-Allow-Headers: Content-Type\r\n"
 
-// AES Key와 IV 저장
-static unsigned char aes_key[16];
-static unsigned char aes_iv[AES_BLOCK_SIZE];
-
 // AES Key와 IV를 생성하는 함수
-void generate_aes_key_and_iv() {
+void generate_aes_key_and_iv(unsigned char *aes_key, unsigned char *aes_iv) {
     if (RAND_bytes(aes_key, sizeof(aes_key)) != 1) {
         fprintf(stderr, "Failed to generate AES key\n");
         exit(EXIT_FAILURE);
@@ -43,13 +39,6 @@ void generate_aes_key_and_iv() {
         printf("%02x", aes_iv[i]);
     }
     printf("\n");
-}
-
-// AES Key와 IV를 반환하는 API
-void get_aes_key_and_iv(struct mg_connection *conn, struct mg_http_message *hm) {
-    mg_http_reply(conn, 200, CORS_HEADERS,
-                  "{\"aes_key\": \"%s\", \"aes_iv\": \"%s\"}\n",
-                  aes_key, aes_iv);
 }
 
 // 랜덤 이미지 선택 함수
@@ -95,21 +84,28 @@ const char* select_random_image(const char *directory) {
 
 // 암호화 메시지 처리 함수
 char *handle_encrypt_message(struct mg_connection *conn, const char *from, const char *to, const char *input_message, const char *key, int chat_room_id) {
-    if (!from || !to || !input_message || !key) {
-        mg_http_reply(conn, 400, CORS_HEADERS, "{\"error\": \"Invalid input\"}\n");
-        return NULL;
-    }
     printf("From: %s, To: %s, Message: %s, Key: %s\n", from, to, input_message, key);
 
+    unsigned char aes_key[16];
+    unsigned char aes_iv[AES_BLOCK_SIZE];
+    unsigned char aes_message[128];
+    int aes_len;
+
     // AES 키와 IV 생성
-    generate_aes_key_and_iv();
+    generate_aes_key_and_iv(aes_key, aes_iv);
 
     // AES 암호화
-    unsigned char aes_message[128];
-    int aes_message_len = 0;
+    aes_encrypt((unsigned char *)input_message, aes_key, aes_iv, aes_message, &aes_len);
+    printf("AES Encrypted Message: %s\n", aes_message);
 
-    aes_encrypt((unsigned char *)input_message, aes_key, aes_iv, aes_message, &aes_message_len);
-    printf("AES encrypted message: %s\n", aes_message);
+    // AES 키와 IV를 Base64로 인코딩
+    char *aes_key_base64 = base64_encode(aes_key, sizeof(aes_key));
+    char *aes_iv_base64 = base64_encode(aes_iv, sizeof(aes_iv));
+
+    if (!aes_key_base64 || !aes_iv_base64) {
+        fprintf(stderr, "Failed to encode AES key or IV to Base64\n");
+        return NULL;
+    }
 
     // 랜덤 이미지 선택
     const char *input_directory = "assets/input";
@@ -223,12 +219,12 @@ char *handle_encrypt_message(struct mg_connection *conn, const char *from, const
 
     char query[1024];
     snprintf(query, sizeof(query),
-            "INSERT INTO secret_message (chat_room_id, sender, original_message, encryption_key, input_image_name, output_image_name, sent_at) "
-            "VALUES ((SELECT id FROM chat_room WHERE (user1='%s' AND user2='%s') OR (user1='%s' AND user2='%s')), '%s', '%s', '%s', '%s', '%s', NOW())",
-            from, to, to, from, from, input_message, key, input_image_name, output_image_name);
+             "INSERT INTO secret_message (chat_room_id, sender, original_message, encryption_key, aes_key, aes_iv, aes_len, input_image_name, output_image_name, sent_at) "
+             "VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, '%s', '%s', NOW())",
+             chat_room_id, from, input_message, key, aes_key_base64, aes_iv_base64, aes_len, input_image_name, output_image_name);
 
     if (mysql_query(db_conn, query)) {
-        fprintf(stderr, "MySQL Error: %s\n", mysql_error(db_conn));
+        fprintf(stderr, "Database query failed: %s\n", mysql_error(db_conn));
         mysql_close(db_conn);
         mg_http_reply(conn, 500, CORS_HEADERS, "{\"error\": \"Failed to save secret message\"}\n");
         free(base64_image);

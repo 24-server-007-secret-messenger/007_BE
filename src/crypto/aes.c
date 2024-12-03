@@ -34,9 +34,14 @@ void aes_encrypt(const unsigned char *input, const unsigned char *key, const uns
 }
 
 // AES CBC 모드 복호화
-void aes_decrypt(const unsigned char *input, const unsigned char *key, const unsigned char *iv, unsigned char *output, int input_len) {
+void aes_decrypt(const unsigned char *input, unsigned char *output, const unsigned char *aes_key, const unsigned char *aes_iv, int aes_len) {
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     int len, plaintext_len;
+
+    if (!ctx) {
+        fprintf(stderr, "Error creating decryption context\n");
+        return;
+    }
 
     // 복호화 초기화
     if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) != 1) {
