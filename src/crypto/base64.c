@@ -15,7 +15,7 @@ char* base64_encode(const unsigned char* buffer, size_t length) {
 
     b64 = BIO_new(BIO_f_base64());
     bio = BIO_new(BIO_s_mem());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // 개행 없이 Base64 생성
     bio = BIO_push(b64, bio);
 
     BIO_write(bio, buffer, length);
@@ -37,6 +37,28 @@ char* base64_encode(const unsigned char* buffer, size_t length) {
     return b64text;
 }
 
+// Base64 디코딩
+size_t base64_decode(const char* base64text, unsigned char* buffer) {
+    BIO *bio, *b64;
+    size_t length = strlen(base64text);
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_mem_buf(base64text, -1);
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL); // 개행 처리 없음
+    bio = BIO_push(b64, bio);
+
+    size_t decoded_length = BIO_read(bio, buffer, length);
+    if (decoded_length <= 0) {
+        fprintf(stderr, "Failed to decode base64 string\n");
+        BIO_free_all(bio);
+        return 0;
+    }
+
+    BIO_free_all(bio);
+    return decoded_length;
+}
+
+// 파일을 읽어 Base64로 인코딩
 char* encode_file_to_base64(const char* filepath) {
     FILE* file = fopen(filepath, "rb");
     if (!file) {
